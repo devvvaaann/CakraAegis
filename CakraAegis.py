@@ -1,5 +1,5 @@
 """
-CakraAegis v3 - Asisten keamanan suara ala Jarvis/Alexa (Desktop)
+CakraAegis v3 - Asisten keamanan suara (Desktop)
 
 Jalur deteksi ancaman: (1) LOG server real-time, (2) KODE proyek, (3) LAYAR (opsional).
 
