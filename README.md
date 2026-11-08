@@ -7,18 +7,18 @@ CakraAegis adalah asisten siber cerdas berbasis AI yang dirancang untuk mengaman
 
 Cara Penggunaan:
 1. Clone Repository: Unduh atau clone proyek CakraAegis dari GitHub ke komputer lokalmu menggunakan terminal:
-   git clone https://github.com/devvvaaann/CakraAegis.git
-   cd CakraAegis
+  - git clone https://github.com/devvvaaann/CakraAegis.git
+  - cd CakraAegis
 
 2. Buat & Aktifkan Virtual Environment (Opsional): Buat lingkungan virtual Python untuk mengisolasi libraries proyek:
-   python -m venv venv
+  - python -m venv venv
   Di Windows (cmd atau powershell):
-   venv\Scripts\activate
+  - venv\Scripts\activate
 
 3. Install Dependencies: Instal seluruh pustaka Python yang dibutuhkan oleh CakraAegis (seperti customtkinter, speechrecognition, pyttsx3, pyaudio, dll) dengan perintah:
-   pip install customtkinter speechrecognition pyttsx3 google-genai pyaudio mss pillow pygame edge-tts gTTS
+  - pip install customtkinter speechrecognition pyttsx3 google-genai pyaudio mss pillow pygame edge-tts gTTS
 
 4. Jalankan Aplikasi: Jalankan program utama CakraAegis:
-   python CakraAegis.py
+  - python CakraAegis.py
 
 5. **Konfigurasi Awal: Masukkan Gemini API Key pribadi melalui tombol pengaturan di dalam antarmuka aplikasi saat pertama kali dijalankan.**
