@@ -12,7 +12,7 @@ Cara Penggunaan:
 
 2. Buat & Aktifkan Virtual Environment (Opsional): Buat lingkungan virtual Python untuk mengisolasi libraries proyek:
   - python -m venv venv
-  Di Windows (cmd atau powershell):
+  - Di Windows (cmd atau powershell):
   - venv\Scripts\activate
 
 3. Install Dependencies: Instal seluruh pustaka Python yang dibutuhkan oleh CakraAegis (seperti customtkinter, speechrecognition, pyttsx3, pyaudio, dll) dengan perintah:
