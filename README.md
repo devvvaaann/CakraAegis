@@ -8,7 +8,7 @@
 
 <p><b>AI-Driven Live Screen-Aware &amp; Voice-Activated Cyber Security Assistant</b></p>
 
-<p><i>Asisten pertahanan siber ala Jarvis: mendengar, melihat, dan menjaga sistem Anda secara real-time.</i></p>
+<p><i>Asisten pertahanan siber interaktif: mendengar, melihat, dan menjaga sistem Anda secara real-time.</i></p>
 
 <p>
   <img src="https://img.shields.io/badge/Python-3.12.9-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12.9">
