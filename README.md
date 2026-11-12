@@ -12,10 +12,9 @@
 
 <p>
   <img src="https://img.shields.io/badge/Python-3.12.9-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12.9">
-  <img src="https://img.shields.io/badge/Google%20Gemini-API-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini API">
   <img src="https://img.shields.io/badge/CustomTkinter-Desktop%20UI-1F6FEB?style=for-the-badge" alt="CustomTkinter">
   <img src="https://img.shields.io/badge/Kartika%20Cyber%20Hackathon-2026-B22222?style=for-the-badge" alt="Kartika Cyber Hackathon 2026">
-  <img src="https://img.shields.io/badge/Kategori-Penangkalan-2EA043?style=for-the-badge" alt="Kategori Penangkalan">
+ 
 </p>
 
 <p>
@@ -23,7 +22,7 @@
   <a href="#fitur-dan-menu-utama">Fitur</a> •
   <a href="#arsitektur-dan-alur-kerja">Arsitektur</a> •
   <a href="#tech-stack">Tech Stack</a> •
-  <a href="#preview-dan-demo">Preview</a> •
+  <a href="#skenario-demo">Demo</a> •
   <a href="#instalasi-dan-quick-start">Instalasi</a> •
   <a href="#panduan-penggunaan">Penggunaan</a> •
   <a href="#catatan-keamanan-dan-batasan">Catatan</a>
@@ -39,7 +38,7 @@
 2. [Fitur dan Menu Utama](#fitur-dan-menu-utama)
 3. [Arsitektur dan Alur Kerja](#arsitektur-dan-alur-kerja)
 4. [Tech Stack](#tech-stack)
-5. [Preview dan Demo](#preview-dan-demo)
+5. [Skenario Demo](#skenario-demo)
 6. [Instalasi dan Quick Start](#instalasi-dan-quick-start)
 7. [Panduan Penggunaan](#panduan-penggunaan)
 8. [Catatan Keamanan dan Batasan](#catatan-keamanan-dan-batasan)
@@ -48,12 +47,16 @@
 
 ## Tentang Proyek
 
-**CakraAegis** adalah aplikasi desktop asisten pertahanan siber bergaya Jarvis yang dibuat untuk **Kartika Cyber Hackathon 2026 (Kategori: Penangkalan)**. Pemilik website atau aplikasi sering tidak sadar sedang diserang, dan kalaupun sadar, tidak tahu harus memperbaiki di bagian kode yang mana. CakraAegis menutup celah itu: mendeteksi tanda serangan, lalu langsung memberi rekomendasi penanganan beserta **kode perbaikannya**.
+**CakraAegis** merupakan asisten siber berbasis AI interaktif yang bekerja secara real-time untuk mengamankan perimeter aplikasi web. CakraAegis memiliki kemampuan unik untuk memantau jendela kerja secara langsung (live screen-aware), mendeteksi kerentanan kode berdasarkan standar OWASP Top 10, serta mengukur tingkat keparahan (urgency severity rating) secara otomatis. Tak hanya mendeteksi, sistem ini juga dapat diajak berdialog secara komunikatif untuk memberikan rekomendasi perbaikan kode (code remediation) secara instan.
 
-- 👁️ **Live Screen-Aware.** AI ikut melihat layar Anda saat ngobrol, dan bisa mendeteksi indikasi serangan atau kebocoran yang terlihat di terminal, dashboard WAF, atau DevTools.
-- 📡 **Real-Time Log Monitoring.** Log server (access, error, auth) dibaca terus-menerus dan dicocokkan dengan pola serangan seperti SQL Injection, XSS, Path Traversal, Brute Force, dan Flood.
-- 🎙️ **Hands-Free Voice Control.** Panggil <b>"CakraAegis"</b>, lalu ngobrol bebas dengan suara. Jawaban dibacakan oleh suara natural berbahasa Indonesia.
-- 🧠 **Sadar Konteks Kode.** Saat serangan terdeteksi, kode proyek yang terkait dengan URL serangan dianalisis, lalu AI menunjuk bagian yang rentan dan memberi perbaikan sebelum/sesudah.
+<table>
+  <tr>
+    <td align="center" width="25%"><h3>🎙️</h3><b>Mendengar</b><br><sub>Kontrol hands-free dengan wake word "CakraAegis" dan suara natural berbahasa Indonesia</sub></td>
+    <td align="center" width="25%"><h3>👁️</h3><b>Melihat</b><br><sub>Live Screen-Aware: AI ikut membaca layar Anda saat ngobrol</sub></td>
+    <td align="center" width="25%"><h3>📡</h3><b>Memantau</b><br><sub>Log server dibaca real-time dan dicocokkan dengan pola serangan</sub></td>
+    <td align="center" width="25%"><h3>🛠️</h3><b>Memperbaiki</b><br><sub>Menunjuk kode yang rentan dan memberi perbaikan sebelum/sesudah</sub></td>
+  </tr>
+</table>
 
 <p align="right"><a href="#top">⬆ kembali ke atas</a></p>
 
@@ -196,40 +199,21 @@ Semua thread berkomunikasi dengan antarmuka lewat antrean (queue) yang aman, seh
 
 ---
 
-## Preview dan Demo
+## Skenario Demo
 
 <details>
-<summary><b>🖼️ Klik untuk melihat screenshot dan GIF demo</b></summary>
+<summary><b>🎬 Klik untuk melihat alur demo dalam 4 langkah</b></summary>
 
 <br>
 
-Simpan berkas gambar di folder <code>assets/</code>, lalu hapus tanda komentar pada tag <code>img</code> yang sesuai.
+Alur ini bisa dicoba dalam beberapa menit tanpa menyerang sistem apa pun.
 
-<!--
-<p align="center">
-  <img src="assets/preview-dashboard.png" alt="Dashboard CakraAegis" width="85%"><br>
-  <sub><b>Gambar 1.</b> Dashboard utama: sidebar kontrol dan area chat.</sub>
-</p>
-<p align="center">
-  <img src="assets/demo-voice.gif" alt="Demo kontrol suara" width="85%"><br>
-  <sub><b>Gambar 2.</b> Demo wake word "CakraAegis" dan percakapan dengan suara.</sub>
-</p>
-<p align="center">
-  <img src="assets/demo-live-screen.gif" alt="Demo Live Screen" width="85%"><br>
-  <sub><b>Gambar 3.</b> Live Screen: AI membaca layar dan memberi peringatan.</sub>
-</p>
-<p align="center">
-  <img src="assets/demo-threat-detection.png" alt="Deteksi ancaman dan kode perbaikan" width="85%"><br>
-  <sub><b>Gambar 4.</b> Deteksi serangan dari log beserta kode perbaikan.</sub>
-</p>
--->
-
-| Gambar | Berkas | Keterangan |
-|---|---|---|
-| Dashboard utama | <code>assets/preview-dashboard.png</code> | Sidebar kontrol dan area chat |
-| Demo suara | <code>assets/demo-voice.gif</code> | Wake word dan percakapan hands-free |
-| Demo Live Screen | <code>assets/demo-live-screen.gif</code> | AI membaca layar dan memberi peringatan |
-| Deteksi ancaman | <code>assets/demo-threat-detection.png</code> | Serangan dari log, analisis, dan kode perbaikan |
+| Langkah | Yang dilakukan | Yang terjadi |
+|:---:|---|---|
+| **1** | Jalankan aplikasi, pilih folder proyek, lalu klik <code>Tes simulasi serangan</code> | Satu baris log uji ditulis. Muncul peringatan merah <b>SQL Injection</b> dan asisten membacakan peringatan |
+| **2** | Tunggu beberapa detik | AI menganalisis serangan bersama kode proyek yang terkait, lalu menampilkan bagian yang rentan, <b>kode perbaikan</b> (bisa disalin), dan langkah respons cepat seperti blokir IP dan aturan WAF |
+| **3** | Ucapkan: <i>"CakraAegis, bagaimana cara memperbaikinya?"</i> | Asisten menjawab dengan suara dan mengingat laporan tadi, jadi percakapan tetap nyambung |
+| **4** | Nyalakan <code>AI melihat layar saat ngobrol</code>, buka terminal atau dashboard log, lalu tanya <i>"ini kenapa?"</i> | AI membaca isi layar dan menjelaskan temuan atau langkah penanganannya |
 
 </details>
 
@@ -323,7 +307,7 @@ Panggilan ke pengguna bawaannya "Komandan". Untuk mengubahnya (misalnya menjadi 
 
 **Pemecahan masalah cepat:**
 
-- **Mikrofon tidak terdeteksi:** jalankan <code>python mic_test.py</code> untuk melihat perangkat mana yang benar-benar mengirim suara. Pastikan izin mikrofon Windows menyala (<i>Privacy &amp; security</i> lalu <i>Microphone</i>, termasuk "Let desktop apps access your microphone").
+- **Mikrofon tidak terdeteksi:** pilih mikrofon lain di dropdown lalu tekan tombol segarkan. Pastikan izin mikrofon Windows menyala (<i>Privacy &amp; security</i> lalu <i>Microphone</i>, termasuk "Let desktop apps access your microphone").
 - **Suara berubah atau terdengar kaku:** suara natural gagal dan aplikasi memakai cadangan. Coba <code>python -m pip install -U edge-tts</code> lalu restart.
 - **Error 429 atau 503 dari Gemini:** kuota API habis atau server sedang padat. Tunggu sebentar. Pesan error menyebut alasan tiap model.
 - **Aplikasi macet:** berkas <code>cakra_hang.log</code> terisi otomatis dan membantu diagnosis.
