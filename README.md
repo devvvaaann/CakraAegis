@@ -1,6 +1,6 @@
 <div align="center">
 
-  <!-- Ganti nama file di bawah ini jika kamu sudah meng-upload banner/thumbnail ke repo -->
+  <!-- Hapus tanda komentar di bawah jika sudah meng-upload banner/thumbnail ke folder assets/ -->
   <!-- <img src="assets/banner-cakraaegis.png" alt="CakraAegis Banner" width="100%" /> -->
 
   <h1>🛡️ CakraAegis</h1>
@@ -18,9 +18,9 @@
   <p>
     <a href="#-tentang-proyek">Tentang Proyek</a> •
     <a href="#-fitur-unggulan">Fitur Unggulan</a> •
-    <a href="#-arsitektur--alur-kerja">Arsitektur Sistem</a> •
-    <a href="#-tech-stack">Tech Stack</a> •
-    <a href="#-panduan-instalasi">Cara Instalasi</a>
+    <a href="#-arsitektur--alur-kerja-sistem">Arsitektur Sistem</a> •
+    <a href="#-tech-stack--library">Tech Stack</a> •
+    <a href="#-panduan-instalasi--menjalankan-quick-start">Cara Instalasi</a>
   </p>
 </div>
 
@@ -59,60 +59,15 @@ Menggabungkan kemampuan **Live Screen-Aware**, **Real-Time Log Monitoring**, dan
 
 ## ⚙️ Arsitektur & Alur Kerja Sistem
 
-<details>
-<summary><b>🔽 Klik untuk melihat detail Alur Kerja & Arsitektur Sistem</b></summary>
-<br>
-
-CakraAegis bekerja melalui 3 jalur utama secara paralel (*multi-threading*) agar aplikasi tetap ringan dan responsif:
-
-1. **Jalur Interaksi Suara (*Voice Loop & TTS Worker*)**
-   * Mikrofon menangkap perintah suara pengguna secara berkelanjutan $\rightarrow$ `SpeechRecognition` mengubah suara menjadi teks $\rightarrow$ `Brain` (Gemini API) memproses konteks $\rightarrow$ Jawaban ditampilkan di GUI dan dibacakan via `Edge-TTS` / `pyttsx3`.
-2. **Jalur Pemantauan Log (*Threat Engine*)**
-   * Memantau perubahan baris baru pada file log secara langsung menggunakan pola *Regex* (SQLi, XSS, Brute Force, Scanner) $\rightarrow$ Jika terdeteksi anomali, sistem mencocokkannya dengan kode proyek terkait dan memberikan peringatan suara + solusi perbaikan.
-3. **Jalur Audit Kode & Layar (*CodeGuard & Live Screen*)**
-   * Menyaring data sensitif (`***REDACTED***`) sebelum dianalisis oleh model multimodal Gemini untuk menjaga privasi kredensial pengguna.
-
-</details>
-
----
-
-## 🛠️ Tech Stack & Library
-
-<details>
-<summary><b>🔽 Klik untuk melihat daftar lengkap Teknologi yang digunakan</b></summary>
-<br>
-
-* **Bahasa Pemrograman:** Python `v3.12.9`
-* **Otak Kecerdasan Buatan:** Google Gemini API (`google-genai`)
-* **Antarmuka Grafis (GUI):** `CustomTkinter` (Modern Dark Mode)
-* **Voice Recognition (STT):** `SpeechRecognition` & `PyAudio`
-* **Voice Synthesis (TTS):** `Edge-TTS` & `pyttsx3`
-* **Screen Capture:** `MSS` & `Pillow (PIL)`
-
-</details>
-
----
-
-## 📸 Preview & Demo Aplikasi
-
-> 💡 *Tip: Upload screenshot atau rekaman GIF tampilan aplikasimu ke folder `assets/` di repo ini, lalu hapus tanda komentar HTML di bawah agar gambarnya muncul.*
-
-<div align="center">
-  <!-- <img src="assets/screenshot-ui.png" alt="Tampilan Utama CakraAegis" width="85%"> -->
-  <p><i>Antarmuka Utama CakraAegis dengan Sidebar Kontrol & Live Threat Chat</i></p>
-</div>
-
----
-
-## 📋 Panduan Instalasi & Menjalankan (Quick Start)
-
 <details open>
-<summary><b>🔽 Klik untuk buka/tutup Panduan Instalasi Lengkap</b></summary>
+<summary><b>🔽 Klik untuk buka/tutup detail Alur Kerja & Arsitektur Sistem</b></summary>
 <br>
 
-Bagi dewan juri atau pengembang yang ingin menjalankan aplikasi **CakraAegis** secara lokal, ikuti langkah-langkah berikut:
+CakraAegis bekerja melalui **3 jalur utama secara paralel (*multi-threading*)** agar antarmuka tetap ringan, responsif, dan tidak mengalami *freeze* saat memproses suara maupun layar:
 
-#### 1. Clone Repository
-```bash
-git clone [https://github.com/devvvaaann/CakraAegis.git](https://github.com/devvvaaann/CakraAegis.git)
-cd CakraAegis
+```text
+[Mikrofon / User] ──(SpeechRecognition)──> [Teks Perintah]
+                                                 │
+[File Log Server] ──(ThreatEngine Regex)──> [Brain / Gemini AI] ──> [Output Chat GUI]
+                                                 │                         │
+[Layar Aktif / Kode] ──(MSS & CodeGuard)─────────┘                         └──> [TTS Worker (Suara)]
