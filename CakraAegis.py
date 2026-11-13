@@ -1,5 +1,5 @@
 """
-CakraAegis v3 - Asisten keamanan suara (Desktop)
+CakraAegis v3 - Asisten keamanan suara ala Jarvis/Alexa (Desktop)
 
 Jalur deteksi ancaman: (1) LOG server real-time, (2) KODE proyek, (3) LAYAR (opsional).
 
@@ -91,6 +91,8 @@ AUDIT_PROMPT = """Audit keamanan kode berikut (milik pengguna). Cari: SQL inject
 path traversal, auth/session lemah, IDOR, upload tidak aman, secret hardcoded, CSRF, misconfig.
 Baris pertama: "RINGKAS: <jumlah temuan & yang paling kritis>". Lalu tiap temuan:
 [SEVERITY] file:baris - jenis - penjelasan singkat, diikuti blok kode perbaikan.
+Setiap baris kode diawali nomor baris asli dengan format "nomor| kode": pakai nomor itu pada file:baris, dan JANGAN
+menyertakan awalan nomor itu pada kode perbaikan. Jika sebuah file dibagi beberapa bagian, audit semua bagian yang diberikan.
 Jika tidak ada temuan jelas, katakan jujur. Jangan mengarang baris yang tidak ada."""
 
 SCREEN_PROMPT = """Analisis screenshot ini sebagai analis keamanan: cari indikasi serangan atau misconfig yang
@@ -486,7 +488,7 @@ class SentenceSpeaker:
 # ============================ OTAK AI ============================
 TRANSIENT = ("503", "unavailable", "429", "resource_exhausted", "500", "internal", "deadline",
              "overloaded", "timed out", "timeout", "connection", "respons kosong")
-THINK_VARIANTS = ("budget0", "low", "none")      # cara mematikan/meminimalkan "thinking" agar cepat
+THINK_VARIANTS = ("budget0", "minimal", "low", "none")      # cara mematikan/meminimalkan "thinking" agar cepat
 EXCLUDE_WORDS = ("tts", "image", "audio", "live", "native", "embedding", "robotics", "computer")
 
 
@@ -497,7 +499,7 @@ class Brain:
             raise RuntimeError("API key Gemini belum diisi.")
         self.client = genai.Client(api_key=key, http_options=types.HttpOptions(api_version="v1beta", timeout=20000))
         self.history, self.screen_note, self.lock = [], "", threading.Lock()
-        self.forced, self.cands, self.tv = forced_model, None, 0
+        self.forced, self.cands, self.tv, self.dead = forced_model, None, 0, set()
         self.model = {"fast": None, "deep": None}      # model yang terakhir berhasil, per mode
 
     # ---- pemilihan model ----
@@ -533,34 +535,88 @@ class Brain:
         return self.cands
 
     def _order(self, mode):
-        cur, c = self.model[mode], self._candidates()[mode]
-        return ([cur] + [m for m in c if m != cur]) if cur else list(c)
+        cur, c = self.model[mode], [m for m in self._candidates()[mode] if m not in self.dead]
+        return ([cur] + [m for m in c if m != cur]) if cur in c else list(c)
 
     def _config(self):
         kw = {"system_instruction": SYSTEM_PROMPT}
         v = THINK_VARIANTS[self.tv]
         if v == "budget0":
             kw["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+        elif v == "minimal":
+            kw["thinking_config"] = types.ThinkingConfig(thinking_level="MINIMAL")
         elif v == "low":
             kw["thinking_config"] = types.ThinkingConfig(thinking_level="LOW")
         return types.GenerateContentConfig(**kw)
 
-    def _classify(self, e, retry):
+    @staticmethod
+    def _code(s, code):
+        """Kode HTTP sebagai angka utuh (agar '400' di dalam '14003ms' tidak salah dikira)."""
+        return re.search(rf"(?<!\d){code}(?!\d)", s) is not None
+
+    @classmethod
+    def _is_quota(cls, e):
+        s = str(e)
+        low = s.lower()
+        return cls._code(s, 429) or "resource_exhausted" in low or ("quota" in low and "exceed" in low)
+
+    @classmethod
+    def _reason(cls, e):
+        """Ringkas error API jadi alasan singkat yang mudah dipahami."""
+        s = str(e)
+        low = s.lower()
+        if cls._is_quota(e):
+            return "kuota/batas permintaan habis (429)"
+        if cls._code(s, 503) or "unavailable" in low or "overloaded" in low or "high demand" in low:
+            return "server sedang sibuk (503)"
+        if cls._code(s, 404) or "not_found" in low:
+            return "model tidak tersedia/sudah dihentikan (404)"
+        if "timeout" in low or "timed out" in low:
+            return "timeout"
+        if "respons kosong" in low:
+            return "respons kosong"
+        return s[:90]
+
+    def _classify(self, e, retry, model=None):
         """Tentukan langkah setelah error: again (ganti varian thinking), retry, next (model lain), raise."""
-        s = str(e).lower()
-        if self.tv < len(THINK_VARIANTS) - 1 and any(k in s for k in ("thinking", "budget", "invalid_argument", "400")):
+        s = str(e)
+        low = s.lower()
+        quota = self._is_quota(e)
+        if (not quota and self.tv < len(THINK_VARIANTS) - 1
+                and ("thinking" in low or "budget" in low or "invalid_argument" in low or self._code(s, 400))):
             self.tv += 1                 # kemungkinan pengaturan thinking tidak didukung model ini: coba varian lain
             return "again"
-        if "404" in s or "not_found" in s:
+        if self._code(s, 404) or "not_found" in low:
+            if model and not self.forced:
+                self.dead.add(model)     # model sudah dihentikan: jangan dicoba lagi
             return "next"
-        if any(t in s for t in TRANSIENT):
+        if quota:
+            return "next"                # kuota habis: mengulang di model yang sama percuma
+        transient = (any(self._code(s, c) for c in (503, 500))
+                     or any(w in low for w in ("unavailable", "internal", "deadline", "overloaded", "timed out",
+                                               "timeout", "connection", "respons kosong")))
+        if transient:
             return "retry" if retry == 0 else "next"
         return "raise"
 
+    def _fail(self, fails):
+        """Pesan gagal yang menyebut alasan SETIAP model (bukan hanya error terakhir)."""
+        detail = "; ".join(f"{m}: {r}" for m, r in fails)
+        reasons = " ".join(r for _, r in fails)
+        if "429" in reasons:
+            tip = "Kemungkinan kuota API gratis habis: tunggu ±1 menit (atau sampai besok), atau cek pemakaian di aistudio.google.com."
+        elif "503" in reasons or "timeout" in reasons:
+            tip = "Server Google sedang padat. Coba lagi beberapa detik lagi."
+        else:
+            tip = "Periksa API key, koneksi internet, dan nama model."
+        return RuntimeError(f"Semua model Gemini gagal → {detail}. {tip}")
+
     # ---- panggilan ke model ----
     def _gen(self, contents, mode="deep"):
-        last, order = None, self._order(mode)
-        for m in order[:5]:
+        fails, deadline = [], time.time() + 20
+        for m in self._order(mode)[:5]:
+            if time.time() > deadline:
+                break
             retry = 0
             while True:
                 try:
@@ -571,18 +627,18 @@ class Brain:
                     self.model[mode] = m
                     return text
                 except Exception as e:
-                    last, act = e, self._classify(e, retry)
+                    act = self._classify(e, retry, m)
                     if act == "again":
                         continue
                     if act == "retry":
                         retry += 1
                         time.sleep(0.6)
                         continue
+                    fails.append((m, self._reason(e)))
                     if act == "next":
                         break
                     raise
-        raise RuntimeError(f"Semua model Gemini sibuk/tidak tersedia (dicoba: {', '.join(order[:5])}). "
-                           f"Error terakhir: {str(last)[:200]}")
+        raise self._fail(fails)
 
     @staticmethod
     def _parts(text, image=None):
@@ -604,8 +660,10 @@ class Brain:
         """Obrolan streaming: teks keluar kata demi kata (tampil & dibacakan segera, tanpa menunggu selesai)."""
         contents = self._contents(text, image)
         mode = "deep" if image is not None else "fast"
-        full, last, order = "", None, self._order(mode)
-        for m in order[:5]:
+        full, fails, deadline = "", [], time.time() + 20
+        for m in self._order(mode)[:5]:
+            if time.time() > deadline:
+                break
             retry = 0
             while True:
                 try:
@@ -620,16 +678,16 @@ class Brain:
                         raise RuntimeError("503 respons kosong")
                     break
                 except Exception as e:
-                    last = e
                     if full.strip():                 # sudah ada teks yang tampil: pakai apa adanya
                         break
-                    act = self._classify(e, retry)
+                    act = self._classify(e, retry, m)
                     if act == "again":
                         continue
                     if act == "retry":
                         retry += 1
                         time.sleep(0.6)
                         continue
+                    fails.append((m, self._reason(e)))
                     if act == "next":
                         break
                     raise
@@ -638,8 +696,7 @@ class Brain:
                 with self.lock:
                     self.history += [("user", text), ("model", full.strip())]
                 return full.strip()
-        raise RuntimeError(f"Semua model Gemini sibuk/tidak tersedia (dicoba: {', '.join(order[:5])}). "
-                           f"Error terakhir: {str(last)[:200]}")
+        raise self._fail(fails)
 
     def once(self, prompt, image=None, mode="deep"):
         return self._gen([types.Content(role="user", parts=self._parts(prompt, image))], mode)
@@ -808,7 +865,7 @@ class CodeGuard:
     SENSITIVE = ("login", "auth", "upload", "query", "db", "user", "admin", "session")
 
     def __init__(self):
-        self.files, self.cache = {}, {}
+        self.files, self.cache, self.last_truncated = {}, {}, 0
 
     def load(self, root):
         files, dirs = {}, 0
@@ -840,6 +897,28 @@ class CodeGuard:
             self.cache[rel] = self.KEY_RE.sub("***REDACTED***", t)
         return self.cache[rel]
 
+    @staticmethod
+    def _chunks(txt, n=6000):
+        """Pecah teks per baris menjadi potongan <= n karakter. Return [(nomor_baris_awal, teks)]."""
+        parts, cur, size, start = [], [], 0, 1
+        for no, line in enumerate(txt.splitlines(keepends=True), 1):
+            while len(line) > n:                              # baris sangat panjang (mis. file minified)
+                if cur:
+                    parts.append((start, "".join(cur)))
+                    cur, size = [], 0
+                parts.append((no, line[:n]))
+                line = line[n:]
+            if cur and size + len(line) > n:
+                parts.append((start, "".join(cur)))
+                cur, size = [], 0
+            if not cur:
+                start = no
+            cur.append(line)
+            size += len(line)
+        if cur:
+            parts.append((start, "".join(cur)))
+        return parts or [(1, "")]
+
     def relevant(self, paths, n=3, cap=7000):
         kws = {k.lower() for p in paths for k in re.findall(r"[A-Za-z_]{3,}", p)} - self.STOP
         scored = []
@@ -848,19 +927,28 @@ class CodeGuard:
             s = sum(txt.count(k) for k in kws) + 5 * sum(k in name for k in kws) + sum(w in name for w in self.SENSITIVE)
             scored.append((s, rel))
         top = [r for s, r in sorted(scored, reverse=True)[:n] if s > 0]
-        return "\n\n".join(f"### FILE: {r}\n{self.read(r)[:cap]}" for r in top) or "(tidak ada file yang cocok)"
+        out = []
+        for r in top:                                         # ambil potongan yang paling banyak memuat kata kunci serangan
+            best = max(self._chunks(self.read(r), cap), key=lambda ch: sum(ch[1].lower().count(k) for k in kws))
+            out.append(f"### FILE: {r} (mulai baris {best[0]})\n{best[1]}")
+        return "\n\n".join(out) or "(tidak ada file yang cocok)"
 
     def batches(self, cap=14000, limit=6):
+        """Seluruh isi tiap file diaudit (dipecah per 6000 karakter), baris diberi nomor asli agar laporan akurat."""
         out, cur, size = [], [], 0
         for rel in sorted(self.files, key=lambda r: not any(w in r.lower() for w in self.SENSITIVE)):
-            txt = self.read(rel)[:6000]
-            if size + len(txt) > cap and cur:
-                out.append(cur)
-                cur, size = [], 0
-            cur.append(f"### FILE: {rel}\n{txt}")
-            size += len(txt)
+            chunks = self._chunks(self.read(rel))
+            for k, (start, txt) in enumerate(chunks, 1):
+                numbered = "".join(f"{start + i}| {ln}" for i, ln in enumerate(txt.splitlines(keepends=True)))
+                label = f"### FILE: {rel}" + (f" (bagian {k}/{len(chunks)})" if len(chunks) > 1 else "")
+                if cur and size + len(numbered) > cap:
+                    out.append(cur)
+                    cur, size = [], 0
+                cur.append(f"{label}\n{numbered}")
+                size += len(numbered)
         if cur:
             out.append(cur)
+        self.last_truncated = max(0, len(out) - limit)
         return ["\n\n".join(b) for b in out[:limit]]
 
 
@@ -873,7 +961,7 @@ class MicEngine:
 
     def __init__(self, app):
         self.app, self.thread, self.running, self.rate = app, None, False, 16000
-        self.cur, self.channels = (None, 0, 1), 1
+        self.cur, self.channels, self.auto_pick = (None, 0, 1), 1, None
         self.min_rms, self.noise, self.level, self.thr = 250.0, 150.0, 0.0, 250.0
         self.manual_until = 0.0
         self.q, self.rec = queue.Queue(), sr.Recognizer()
@@ -957,13 +1045,17 @@ class MicEngine:
     def _capture_loop(self, stream, pa):
         tts, rate, nch = self.app.tts, self.rate, self.channels
         pre = collections.deque(maxlen=6)
-        frames, speaking, start, last_voice, manual, zeros = [], False, 0.0, 0.0, False, 0
+        frames, speaking, start, last_voice, manual, zeros, alive = [], False, 0.0, 0.0, False, 0, 0
         try:
             while self.running:
                 data = self._mono(stream.read(self.CHUNK, exception_on_overflow=False), nch)
                 rms, now = self._rms(data), time.time()
                 self.level = rms
                 zeros = zeros + 1 if rms == 0 else 0
+                alive = alive + 1 if rms > 0 else 0
+                if alive >= 8 and self.auto_pick:                         # mic pilihan otomatis terbukti menghasilkan suara
+                    name, self.auto_pick = self.auto_pick, None
+                    self.app.ui(lambda n=name: self.app._mic_confirm(n))
                 if zeros * self.CHUNK / rate > self.DEAD_SECONDS:     # hening total: mic tidak mengirim suara
                     self.running = False
                     self.app.ui(self.app.on_mic_dead)
@@ -1174,6 +1266,8 @@ class App(ctk.CTk):
         self.mic_menu.pack(padx=14, pady=3)
         ctk.CTkButton(side, text="🔄 Segarkan daftar mic", fg_color="transparent", border_width=1,
                       command=self.refresh_mics).pack(padx=14, fill="x", pady=(0, 3))
+        ctk.CTkButton(side, text="🔒 Buka pengaturan mic Windows", fg_color="transparent", border_width=1,
+                      command=self._open_mic_settings).pack(padx=14, fill="x", pady=(0, 3))
         ctk.CTkLabel(side, text="Sensitivitas (kiri = lebih peka)", text_color=C["muted"],
                      font=("Segoe UI", 10)).pack(padx=14, anchor="w")
         self.sens = ctk.CTkSlider(side, from_=60, to=1500, command=self._on_sens)
@@ -1402,15 +1496,58 @@ class App(ctk.CTk):
         try:
             self.mic.start(idx)
         except Exception as e:
-            msg = str(e)
-            self.ui(lambda: self._mic_failed(msg))
+            first = str(e)
+            self.ui(lambda: self.set_heard("⏳ Mic pilihan gagal dibuka, mencari mic lain yang bisa dipakai…"))
+            if not self._mic_open_any(idx):
+                self.ui(lambda: self._mic_failed(first))
             return
         self.ui(lambda: self.set_heard("(mikrofon aktif — coba bicara, perhatikan meter level di sidebar)"))
 
+    def _mic_open_any(self, skip_idx):
+        """Mic pilihan gagal dibuka (mis. error -9999): coba 'Default sistem', lalu perangkat lain. True bila berhasil."""
+        if skip_idx is not None:
+            try:
+                self.mic.start(None)
+                self.ui(lambda: self.set_heard("⚠️ Mic pilihan gagal dibuka, memakai Default sistem."))
+                return True
+            except Exception:
+                pass
+        for n_try, (i, rate, ch, name) in enumerate(self._mic_candidates()):
+            if n_try >= 12:
+                break
+            if i == skip_idx:
+                continue
+            try:
+                self.mic.start(i, rate, ch)
+            except Exception:
+                continue
+            self.mic.auto_pick = name
+            self.ui(lambda: self._mic_switched(name, i, rate, ch))
+            return True
+        return False
+
     def _mic_failed(self, msg):
         self.voice_sw.deselect()
-        self.add_message("ai", f"⚠️ Mikrofon tidak bisa dibuka: {msg}\nCoba pilih mikrofon lain di sidebar lalu tekan 🔄, "
-                               "dan cek Windows: Settings > Privacy > Microphone (izinkan aplikasi desktop).")
+        self.set_heard("⚠️ Mikrofon gagal dibuka (lihat penjelasan di chat)")
+        priv = windows_mic_privacy()
+        hint = ("Error -9999 di Windows biasanya berarti akses mikrofon DITOLAK Windows, atau mic sedang dipakai aplikasi lain "
+                "(Zoom/Discord/Teams/tab Chrome yang memakai mic). " if "-9999" in msg else "")
+        self.add_message("ai", f"⚠️ Mikrofon tidak bisa dibuka (semua perangkat dicoba): {msg}\n{hint}"
+                               + (f"Terdeteksi di Windows → {priv}\n" if priv else "")
+                               + "Langkah: klik tombol 🔒 Buka pengaturan mic Windows di sidebar → pastikan \"Microphone access\" "
+                                 "dan \"Let desktop apps access your microphone\" menyala; tutup aplikasi lain yang memakai mic; "
+                                 "lalu nyalakan lagi \"Selalu mendengarkan\" atau tekan 🔄 Segarkan daftar mic.")
+
+    def _open_mic_settings(self):
+        opener = getattr(os, "startfile", None)
+        if opener:
+            try:
+                opener("ms-settings:privacy-microphone")
+                return
+            except OSError:
+                pass
+        self.add_message("ai", "Tombol ini khusus Windows. Di macOS: System Settings > Privacy & Security > Microphone, lalu izinkan "
+                               "Terminal/VS Code (aplikasi yang menjalankan Python). Di Linux: cek pengaturan Sound > Input.")
 
     def _mic_do_error(self, msg):
         self._mic_retry += 1
@@ -1447,14 +1584,18 @@ class App(ctk.CTk):
             except Exception:
                 self._mic_tried.add((idx, rate, ch))
                 continue
+            self.mic.auto_pick = name                # disimpan permanen baru setelah terbukti ada suara
             self.ui(lambda: self._mic_switched(name, idx, rate, ch))
             return
         self.mic.stop()
         self.ui(self._mic_all_dead)
 
-    def _mic_switched(self, name, idx, rate, ch):
+    def _mic_confirm(self, name):
+        """Mic hasil pilihan otomatis terbukti menghasilkan suara: baru sekarang pilihannya disimpan."""
         self.cfg["mic_name"] = name
         save_cfg(self.cfg)
+
+    def _mic_switched(self, name, idx, rate, ch):
         self.mic_var.set(f"{idx}: {name}")
         self.set_heard(f"⚠️ Mic sebelumnya hening total. Mencoba: {name} @ {rate} Hz, {ch} kanal …")
 
@@ -1772,6 +1913,10 @@ class App(ctk.CTk):
                 self._publish(res, "audit", f"🔍 Audit kode (bagian {i})", speak=False)
         finally:
             self.job_busy = False
+        if self.guard.last_truncated:
+            n = self.guard.last_truncated
+            self.ui(lambda: self.add_message("ai", f"ℹ️ {n} bagian kode belum ikut diaudit (batas per sesi). "
+                                                   "Pilih folder yang lebih kecil agar semuanya terperiksa."))
         self.tts.say("Audit selesai. " + speakable(" ".join(ringkas), 350))
 
     def analyze_screen(self):
